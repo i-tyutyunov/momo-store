@@ -15,3 +15,11 @@ NODE_ENV=production VUE_APP_API_URL=http://localhost:8081 npm run serve
 go run ./cmd/api
 go test -v ./... 
 ```
+
+### Docker
+
+```bash
+docker build -t momo-store-backend:0.0.1 ./backend
+docker run --name momo-store-backend -p 8081:8081 momo-store-backend:0.0.1
+
+```

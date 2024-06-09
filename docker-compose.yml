@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: momo-store-backend:0.0.1
+    container_name: memo-store-backend
+    restart: always
+    ports:
+      - "8081:8081"
+    networks:
+      - memo-store
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VUE_APP_API_URL: http://localhost:8081
+      NODE_ENV: production
+    image: memo-store-frontend:0.0.1
+    container_name: memo-store-frontend
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - memo-store
+
+networks:
+  memo-store:
