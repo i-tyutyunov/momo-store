@@ -1,0 +1,33 @@
+---
+
+- name: Install dependencies
+  tags:
+    - role-dependencies
+  hosts:
+    - production
+  roles:
+    - dependencies
+
+- name: Preparing the environment for deployment
+  tags:
+    - role-common
+  hosts:
+    - production
+  roles:
+    - common
+
+- name: Backend deployment
+  tags:
+    - role-backend
+  hosts:
+    - production
+  roles:
+    - backend
+
+- name: Frontend deployment
+  tags:
+    - role-frontend
+  hosts:
+    - production
+  roles:
+    - frontend

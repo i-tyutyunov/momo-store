@@ -1,0 +1,38 @@
+- name: Ensure group "docker" exists
+  group:
+    name: "{{ docker_group }}"
+
+- name: Adding docker to docker group
+  become: yes
+  user:
+    name: "{{ docker_user }}"
+    groups: "{{ docker_group }}"
+    append: yes
+
+- name: Change file ownership, group and permissions
+  become: yes
+  file:
+    path: /usr/local/bin/docker-compose
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+
+- name: Create a directory for the app
+  become: yes
+  become_user: "{{ docker_user }}"
+  file:
+    path: "~/app"
+    state: directory
+
+- name: Copy docker-compose.yml
+  become: yes
+  become_user: "{{ docker_user }}"
+  copy:
+    src: ../../../../../docker-compose.yml
+    dest: "~/app/docker-compose.yml"
+
+- name: Copy env
+  become: yes
+  become_user: "{{ docker_user }}"
+  copy:
+    src: ../../../../../.env
+    dest: "~/app/.env"

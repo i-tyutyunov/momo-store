@@ -1,0 +1,7 @@
+---
+
+- name: Deploy application
+  hosts:
+    - production
+  roles:
+    - app
