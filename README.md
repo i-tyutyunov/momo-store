@@ -23,3 +23,29 @@ docker build -t momo-store-backend:0.0.1 ./backend
 docker run --name momo-store-backend -p 8081:8081 momo-store-backend:0.0.1
 
 ```
+
+## Infrastructure
+
+### Terraform
+
+_На момент работы с terraform у вас должен быть файл с авторизационным ключом_ 
+
+yc config profile create memo-store-terraform
+yc config set service-account-key key.json
+yc config set cloud-id <идентификатор_облака>
+yc config set folder-id <идентификатор_каталога>
+
+export YC_TOKEN=$(yc iam create-token)
+export YC_CLOUD_ID=$(yc config get cloud-id)
+export YC_FOLDER_ID=$(yc config get folder-id)
+
+**Переменные для доступа к хранилищу состояния**
+export GITLAB_USER_NAME=<логин в GitLab>
+export GITLAB_ACCESS_TOKEN=<access токен в Gitlab>
+
+export TF_VAR_folder_id=$YC_FOLDER_ID
+export TF_VAR_instance_user_name=<имя пользователя для доступа к ВМ>
+export TF_VAR_ssh_public_key=<публичный ключ для доступа к ВМ>
+
+
+terraform init -backend-config="username=$GITLAB_USER_NAME" -backend-config="password=$GITLAB_ACCESS_TOKEN"
