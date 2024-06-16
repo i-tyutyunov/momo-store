@@ -1,0 +1,6 @@
+all:
+  children:
+    production:
+      hosts:
+        momo-store:
+          ansible_host: momo-store.243075.ru

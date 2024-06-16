@@ -1,0 +1,40 @@
+- name: Add Docker's official GPG key
+  become: yes
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker's official apt repository
+  become: yes
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+    state: present
+
+- name: Update apt and install necessary packages
+  become: yes
+  apt:
+    update_cache: yes
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - nginx
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - acl
+    state: present
+
+- name: Install docker-compose
+  become: yes
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: 'u+x,g+x'
+
+- name: Check docker is active
+  service:
+    name: docker
+    state: started
+    enabled: yes
