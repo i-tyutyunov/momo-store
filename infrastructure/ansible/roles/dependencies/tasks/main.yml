@@ -10,6 +10,7 @@
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
     state: present
 
+
 - name: Update apt and install necessary packages
   become: yes
   apt:
@@ -24,6 +25,8 @@
       - docker-ce-cli
       - containerd.io
       - acl
+      - certbot
+      - python3-certbot-nginx
     state: present
 
 - name: Install docker-compose

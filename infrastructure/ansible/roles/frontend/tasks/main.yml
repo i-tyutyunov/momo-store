@@ -1,16 +1,20 @@
 ---
-- name: Copy Nginx configuration momo-store.243075.ru.conf
+- name: Copy Nginx configuration nginx-frontend.conf
   become: yes
   copy:
-    src: ../files/momo-store.243075.ru.conf
-    dest: /etc/nginx/sites-available/momo-store.243075.ru.conf
+    src: ../files/nginx-frontend.conf
+    dest: "/etc/nginx/sites-available/{{ frontend_host }}.conf"
 
-- name: Enable Nginx site momo-store.243075.ru.conf
+- name: Enable Nginx site nginx-frontend.conf
   become: yes
   file:
-    src: /etc/nginx/sites-available/momo-store.243075.ru.conf
-    dest: /etc/nginx/sites-enabled/momo-store.243075.ru.conf
+    src: "/etc/nginx/sites-available/{{ frontend_host }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ frontend_host }}.conf"
     state: link
+
+- name: Obtain SSL certificate
+  become: yes
+  command: "certbot --nginx -d {{ frontend_host }} --non-interactive --agree-tos --email tyutyunov@braind.agency"
 
 - name: Nginx reloaded
   become: yes

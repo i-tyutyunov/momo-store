@@ -1,3 +1,9 @@
+- name: Create cron job for certbot renewal
+  become: yes
+  cron:
+    name: "Certbot renewal"
+    job: "0 0 * * 0 /usr/bin/certbot renew"
+    
 - name: Ensure group "docker" exists
   group:
     name: "{{ docker_group }}"
