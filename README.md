@@ -1,127 +1,134 @@
 # Momo Store aka Пельменная №2
 
-<img width="900" alt="image" src="https://user-images.githubusercontent.com/9394918/167876466-2c530828-d658-4efe-9064-825626cc6db5.png">
+Проект можно разделить на следующие части:
 
-## Frontend
+1. Frontend
+2. Backend
+3. Terraform
+4. Ansible
+5. CI/CD
 
-```bash
-npm install
-NODE_ENV=production VUE_APP_API_URL=http://localhost:8081 npm run serve
+## Frontend и Backend
+
+Frontend: `mm-store.243075.ru`.
+Backend: `mm-store.243075.ru/api/`.
+
+Собираются из исходников в docker-образы. Образы хранятся в GitLab Container Registry.
+При шаге `deploy`, в CI/CD, образы запускаются на ВМ с помощью Ansible и docker-compose.
+
+Тестовое окружение не предусмотрено.
+
+**Как запустить локально:**
+
+_Для запуска у вас должен быть доступ к GitLab Container Registry_
+
+```shell
+docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD gitlab.praktikum-services.ru:5050
+docker-compose --env-file .env.example up
 ```
 
-```bash
-docker build -t momo-store-frontend:0.0.1 ./frontend
-docker run --name momo-store-frontend -p 8080:8080 momo-store-frontend:0.0.1
+## Terraform
 
-```
+Terraform используется для создания инфраструктуры в Yandex Cloud.
 
+А именно:
 
-## Backend
+1. Облачная сеть и подсеть;
+2. Статичный IP-адрес;
+3. Виртуальная машина.
 
-```bash
-go run ./cmd/api
-go test -v ./... 
-```
+Создание этих ресурсов оформлено в виде модулей.
 
-### Docker
+В качестве хранилища состояния используется [GitLab Terraform states](https://gitlab.praktikum-services.ru/std-025-75/momo-store/-/terraform)
 
-```bash
-docker build -t momo-store-backend:0.0.1 ./backend
-docker run --name momo-store-backend -p 8081:8081 momo-store-backend:0.0.1
+В output Terraform возвращает `ip_address` - IP-адрес ВМ.
+В CI/CD этот адрес пробрасывается в Ansible, где прописывается в `/etc/hosts`.
 
-```
+**Необходимые параметры для Terraform**
 
-## Infrastructure
-
-### Terraform
-
-_На момент работы с terraform у вас должен быть файл с авторизационным ключом_ 
-```bash
-yc config profile create memo-store-terraform
-yc config set service-account-key key.json
-yc config set cloud-id <идентификатор_облака>
-yc config set folder-id <идентификатор_каталога>
-
-export YC_TOKEN=$(yc iam create-token)
-export YC_CLOUD_ID=$(yc config get cloud-id)
-export YC_FOLDER_ID=$(yc config get folder-id)
-
-# Переменные для доступа к хранилищу состояния
-export GITLAB_USER_NAME=<логин в GitLab>
-export GITLAB_ACCESS_TOKEN=<access токен в Gitlab>
+```shell
+export YC_SERVICE_ACCOUNT_KEY_FILE=<путь к ключу авторизации от сервисного аккаунта в YC>
+export YC_CLOUD_ID=<id облака>
+export YC_FOLDER_ID=<id каталога>
 
 export TF_VAR_folder_id=$YC_FOLDER_ID
-export TF_VAR_instance_user_name=<имя пользователя для доступа к ВМ>
-export TF_VAR_ssh_public_key=<публичный ключ для доступа к ВМ>
+export TF_VAR_instance_user_name=<пользователь для Ansible>
+export TF_VAR_ssh_public_key=<открытый ключ для пользователя Ansible>
 
-cd ~/infrastructure/terraform
-terraform init -backend-config="username=$GITLAB_USER_NAME" -backend-config="password=$GITLAB_ACCESS_TOKEN"
-terraform apply
+# Для доступа к хранилищу состояния
+export TF_HTTP_USERNAME=<имя токена в GitLab>
+export TF_HTTP_PASSWORD=<токен проекта в GitLab>
+
+terraform init -reconfigure
+terraform apply 
+terraform output ip_address
 ```
 
+## Ansible
 
-### Ansible
+Ansible разбит на следующие роли:
 
-Для запуска docker-compose на целевой машине, в ansible должен быть установлен модуль `community.docker` >= 3.
+1. `dependencies` - установка ПО на ВМ;
+2. `common` - подготовка ВМ к деплою фронтенда и бэкенда. _Копирование `.env`, `docker-compose.yml`, авторизация в 
+   GitLab Container Registry;_
+3. `backend` - деплой бэкенда;
+4. `frontend` - деплой фронтенда.
+
+Доступы от Container Registry зашифрованы с помощь ansible-vault. 
+Путь к файлу с паролем от vault находится в штатной, для Ansible, переменной `ANSIBLE_VAULT_PASSWORD_FILE` GitLab CI/CD.
+
+Приватный ключ для Ansible находится в переменной `SSH_PRIVATE_KEY`.
+Открытый ключ - в `TF_VAR_ssh_public_key`. Он помещается на ВМ при её создании через Terraform.
+
+**О запуске ролей**
+
+Каждая роль указана в `playbook.yml` и помечена тегом. Таким образом можно разделять применение Ansible на этапы:
+
 ```shell
-ansible-galaxy collection list
-ansible-galaxy collection install community.docker
-
-```
-
-```bash
-cd ~/infrastructure/ansible
 ansible-playbook playbook.yml --tags role-dependencies
 ansible-playbook playbook.yml --tags role-common
 ansible-playbook playbook.yml --tags role-backend
 ansible-playbook playbook.yml --tags role-frontend
-
 ```
-или
 
-```bash
-cd ~/infrastructure/ansible
-ansible-playbook playbook.yml
+## CI/CD
 
-```
-### Docker compose
+В CI/CD можно использовать только ветку `main`, т.к. окружения для тестирования не предусмотрено.
 
-**Для прода:** docker-compose up 
-**Для локальной разработки:** docker-compose --env-file .env_local up 
+CI/CD разделён на этапы:
 
-### Docker Registry
-Образы хранятся в GitLab. Доступ к чтению и записи образов происходит по токену проекта
+- test
+- build
+- terraform
+- ansible
+- deploy
 
+**test**
 
-План для ansible:
+Запускаются тесты бэкенда. Конфиг Ansible пропускается через `ansible-lint`. Для Terraform запускается `terraform 
+validate`.
 
-1. Заводим переменную с открытым ключом для доступа к виртуалке
-2. 
+**build**
 
-Дальнейший план:
-    Задача минимум:
-        +0. Давай закроем бэкенд
-        +1. Используем docker-registry GitLab: добиваемся того, чтобы виртуалка могла качать образы
-        2. Пишем CI/CD В ПРОЦЕССЕ:
-            +1. Нужно что-то придумать с ключом для ansible
-            +2. Задание версии образа в docker-compose
-            +3. Проброс IP из Terraform в Ansible
-            -4. Автотесты - НЕОБЯЗАТЕЛЬНО
-            -5. Что-то придумать с окружениями(dev/prod).Деплой на прод только из master. Отлично подойдёт 
-балансировщик чтобы только у него был статичный IP/
-            -6. Привязаться к изменениям файлов при выполнении этаповв
-            
-        +3. Реализуем ssl-сертификат самым простым способом
-        4. На этом в целом можно сдавать работу, но можно сделать лучше.
-    
-    Задача максимум:
-        1. Делаем возможным масштабирование приложения через docker-compose(смотрим на пример из курса)
-        2. Ставим вперери ещё балансировщик и для него выпускаем сертификат. А за балансировщиком ставим виртуалку;
-        3. Предусматриваем возможность увеличения количества виртуалок.
+Происходит создание docker-образов фронтенда и бэкенда. Созданные образы 
+помещаются в [GitLab Container Registry](https://gitlab.praktikum-services.ru/std-025-75/momo-store/container_registry)
 
-### CI/CD
+**terraform**
 
-**Terraform**
+Запускается `terraform plan` и вручную нужно запустить `terraform apply`.
+После `terraform apply` из `output ip_address` получаем IP ВМ и пробрасываем его в Ansible через артефакт. 
 
-Для авторизации в YC используется переменная CI/CD - `YC_SERVICE_ACCOUNT_KEY_FILE`.
-Для авторизации в хранилище состояния Terraform используются `T_STATE_USER_NAME` и `T_STATE_ACCESS_TOKEN`
+**ansible**
+
+Запускает роль `dependencies`: Установка ПО на ВМ, IP-адрес которой был получен из `terraform output ip_address`.
+
+А также роль `common`, которая готовит ВМ к деплою бэкенда и фронтанда: копирование `docker-compose.yml`, копирование 
+переменных окружения (`.env`) для docker-compose, авторизация в Container Registry.
+
+Перед копированием файла с переменными окружения (`.env`), в него добавляются переменные `BACKEND_IMAGE_TAG` и 
+`FRONTEND_IMAGE_TAG`, в которые записываются версии образов. Версии образов - это коротких хеш коммита. 
+
+**deploy**
+
+Непосредственный деплой фронтенда и бэкенда на ВМ. Для этого также используется Ansible, а именно роли `backend` и 
+`frontend`. Роль `frontend` также занимается настройкой nginx и установкой SSL-сертификата.
