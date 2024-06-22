@@ -1,7 +1,7 @@
 variables:
   FULL_IMAGE_NAME_BACKEND: "$CI_REGISTRY_IMAGE/momo-store-backend:${CI_COMMIT_SHORT_SHA}"
   FULL_IMAGE_NAME_FRONTEND: "$CI_REGISTRY_IMAGE/momo-store-frontend:${CI_COMMIT_SHORT_SHA}"
-  VM_DOMAIN: "momo-store.243075.ru"
+  VM_DOMAIN: "mm-store.243075.ru"
 
 stages:
   - test

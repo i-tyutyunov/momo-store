@@ -1,0 +1,30 @@
+server {
+    server_name {{ frontend_host }};
+
+
+   location /api {
+       rewrite ^/api/(.*) /$1 break;
+       proxy_pass http://localhost:8081;
+    }
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/{{ frontend_host }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ frontend_host }}/privkey.pem;
+}
+server {
+    if ($host = {{ frontend_host }}) {
+        return 301 https://$host$request_uri;
+    }
+
+
+    listen 80;
+    server_name {{ frontend_host }};
+    return 404;
+}

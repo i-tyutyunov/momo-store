@@ -1,8 +1,8 @@
 ---
 - name: Copy Nginx configuration nginx-frontend.conf
   become: true
-  ansible.builtin.copy:
-    src: nginx-frontend.conf
+  ansible.builtin.template:
+    src: nginx-frontend.conf.j2
     dest: "/etc/nginx/sites-available/{{ frontend_host }}.conf"
     mode: "644"
 
@@ -13,17 +13,30 @@
     dest: "/etc/nginx/sites-enabled/{{ frontend_host }}.conf"
     state: link
 
+- name: Check if the certificate file exists
+  become: true
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ frontend_host }}/fullchain.pem"
+  register: cert_file
+
+- name: Nginx stop
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: stopped
+  when: cert_file.stat.exists
+
 - name: Obtain SSL certificate
   become: true
-  ansible.builtin.command: "certbot --nginx -d {{ frontend_host }} --non-interactive --agree-tos --email tyutyunov@braind.agency"
-  args:
-    creates: "/etc/letsencrypt/live/{{ frontend_host }}"
+  ansible.builtin.command:
+    cmd: "certbot certonly --standalone -d {{ frontend_host }} --non-interactive --agree-tos --email tyutyunov@braind.agency"
+    creates: "/etc/letsencrypt/live/{{ frontend_host }}/fullchain.pem"
 
 - name: Nginx reloaded
   become: true
   ansible.builtin.service:
     name: nginx
-    state: reloaded
+    state: restarted
 
 
 - name: Run `docker-compose up`
