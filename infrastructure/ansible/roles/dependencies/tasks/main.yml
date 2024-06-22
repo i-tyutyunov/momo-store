@@ -1,20 +1,20 @@
 - name: Add Docker's official GPG key
-  become: yes
-  apt_key:
+  become: true
+  ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
 - name: Add Docker's official apt repository
-  become: yes
-  apt_repository:
+  become: true
+  ansible.builtin.apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
     state: present
 
 
 - name: Update apt and install necessary packages
-  become: yes
-  apt:
-    update_cache: yes
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
     name:
       - apt-transport-https
       - ca-certificates
@@ -30,14 +30,14 @@
     state: present
 
 - name: Install docker-compose
-  become: yes
-  get_url:
+  become: true
+  ansible.builtin.get_url:
     url: https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64
     dest: /usr/local/bin/docker-compose
     mode: 'u+x,g+x'
 
 - name: Check docker is active
-  service:
+  ansible.builtin.service:
     name: docker
     state: started
-    enabled: yes
+    enabled: true

@@ -1,44 +1,55 @@
 - name: Create cron job for certbot renewal
-  become: yes
-  cron:
+  become: true
+  ansible.builtin.cron:
     name: "Certbot renewal"
     job: "0 0 * * 0 /usr/bin/certbot renew"
-    
+
 - name: Ensure group "docker" exists
-  group:
+  ansible.builtin.group:
     name: "{{ docker_group }}"
 
 - name: Adding docker to docker group
-  become: yes
-  user:
+  become: true
+  ansible.builtin.user:
     name: "{{ docker_user }}"
     groups: "{{ docker_group }}"
-    append: yes
+    append: true
 
 - name: Change file ownership, group and permissions
-  become: yes
-  file:
+  become: true
+  ansible.builtin.file:
     path: /usr/local/bin/docker-compose
     owner: "{{ docker_user }}"
     group: "{{ docker_group }}"
 
 - name: Create a directory for the app
-  become: yes
+  become: true
   become_user: "{{ docker_user }}"
-  file:
+  ansible.builtin.file:
     path: "~/app"
     state: directory
+    mode: "755"
 
 - name: Copy docker-compose.yml
-  become: yes
+  become: true
   become_user: "{{ docker_user }}"
-  copy:
+  ansible.builtin.copy:
     src: ../../../../../docker-compose.yml
     dest: "~/app/docker-compose.yml"
+    mode: "644"
+
+- name: Login to Docker Registry
+  become: true
+  become_user: "{{ docker_user }}"
+  community.docker.docker_login:
+    registry_url: "gitlab.praktikum-services.ru:5050"
+    username: "{{ common_docker_registry_username }}"
+    password: "{{ common_docker_registry_password }}"
 
 - name: Copy env
-  become: yes
+  become: true
   become_user: "{{ docker_user }}"
-  copy:
+  ansible.builtin.copy:
     src: ../../../../../.env
     dest: "~/app/.env"
+    mode: "644"
