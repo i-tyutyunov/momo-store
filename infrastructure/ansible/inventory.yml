@@ -3,4 +3,4 @@ all:
     production:
       hosts:
         momo-store:
-          ansible_host: momo-store.243075.ru
+          ansible_host: mm-store.243075.ru

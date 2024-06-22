@@ -1,4 +1,4 @@
 docker_user: "docker"
 docker_group: "docker"
 
-frontend_host: "momo-store.243075.ru"
+frontend_host: "mm-store.243075.ru"
