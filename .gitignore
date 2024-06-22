@@ -18,3 +18,4 @@ vendor/
 .DS_Store
 
 frontend/node_modules
+infrastructure/ansible/vault_pass.txt

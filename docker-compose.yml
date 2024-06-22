@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   backend:
-    image: tyutyunov/momo-store-backend:0.0.1
+    image: gitlab.praktikum-services.ru:5050/std-025-75/momo-store/momo-store-backend:${BACKEND_IMAGE_TAG}
     container_name: momo-store-backend
     restart: always
     ports:
@@ -11,7 +11,7 @@ services:
   frontend:
     environment:
       - VUE_APP_API_URL
-    image: tyutyunov/momo-store-frontend:0.0.1
+    image: gitlab.praktikum-services.ru:5050/std-025-75/momo-store/momo-store-frontend:${FRONTEND_IMAGE_TAG}
     container_name: momo-store-frontend
     restart: always
     ports:

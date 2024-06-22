@@ -1,4 +1,4 @@
-FROM golang:alpine3.20
+FROM docker.io/golang:alpine3.20
 WORKDIR /usr/src/app
 
 ENV APP_USER=gouser APP_GROUP=gouser

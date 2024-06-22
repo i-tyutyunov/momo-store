@@ -1,0 +1,171 @@
+variables:
+  FULL_IMAGE_NAME_BACKEND: "$CI_REGISTRY_IMAGE/momo-store-backend:${CI_COMMIT_SHORT_SHA}"
+  FULL_IMAGE_NAME_FRONTEND: "$CI_REGISTRY_IMAGE/momo-store-frontend:${CI_COMMIT_SHORT_SHA}"
+  VM_DOMAIN: "momo-store.243075.ru"
+
+stages:
+  - test
+  - build
+  - terraform
+  - ansible
+  - deploy
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+
+
+.build-image:
+  image: quay.io/buildah/stable
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+  variables:
+    - DOCKER_FILE_DIR
+    - FULL_IMAGE_NAME
+  script:
+    - buildah build -t $FULL_IMAGE_NAME "${CI_PROJECT_DIR}/${DOCKER_FILE_DIR}"
+    - buildah push $FULL_IMAGE_NAME
+
+terraform-validate:
+  stage: test
+  extends: .terraform-init
+  script:
+    - terraform validate
+
+ansible-lint:
+  image: pipelinecomponents/ansible-lint:0.70.0
+  stage: test
+  before_script:
+    - cd infrastructure/ansible
+    - export ANSIBLE_CONFIG=${CI_PROJECT_DIR}/infrastructure/ansible/ansible.cfg
+  script:
+    - ansible-lint playbook.yml
+
+backend-test:
+  image: docker.io/golang:alpine3.20
+  stage: test
+  before_script:
+    - cd backend
+  script:
+    - go test -v ./...
+
+build-frontend:
+  stage: build
+  extends: .build-image
+  variables:
+    DOCKER_FILE_DIR: frontend
+    FULL_IMAGE_NAME: $FULL_IMAGE_NAME_FRONTEND
+  rules:
+    - changes:
+      - frontend/**/*
+
+build-backend:
+  stage: build
+  extends: .build-image
+  needs: [backend-test]
+  variables:
+    DOCKER_FILE_DIR: backend
+    FULL_IMAGE_NAME: $FULL_IMAGE_NAME_BACKEND
+  rules:
+    - changes:
+      - backend/**/*
+
+.terraform-init:
+  image: hashicorp/terraform:1.8
+  before_script:
+    - cd infrastructure/terraform
+    - |
+      cat <<EOF >> ~/.terraformrc
+        provider_installation {
+          network_mirror {
+            url = "https://terraform-mirror.yandexcloud.net/"
+            include = ["registry.terraform.io/*/*"]
+          }
+          direct {
+            exclude = ["registry.terraform.io/*/*"]
+          }
+        }
+      EOF
+    - terraform init -reconfigure
+  cache:
+    paths:
+      - infrastructure/terraform/.terraform
+
+terraform-plan:
+  stage: terraform
+  needs: [ terraform-validate ]
+  extends: .terraform-init
+  script:
+    - terraform plan -out="planfile"
+  artifacts:
+    paths:
+      - infrastructure/terraform/planfile
+
+terraform-apply:
+  extends: .terraform-init
+  stage: terraform
+  needs: [ terraform-plan ]
+  script:
+    - terraform apply -auto-approve "planfile"
+    - echo "export VM_IP=$(terraform output ip_address)" > $CI_PROJECT_DIR/ci-cd.env
+  when: manual
+  artifacts:
+    paths:
+      - $CI_PROJECT_DIR/ci-cd.env
+
+.ansible-playbook-by-tag:
+  image: willhallonline/ansible:2.16.4-ubuntu-22.04
+  variables:
+    - ROLE_TAG_NAME:
+        description: "Tag name for ansible-playbook"
+  before_script: &ansible-playbook-by-tag-before_script
+    - source $CI_PROJECT_DIR/ci-cd.env
+    - echo "${VM_IP} ${VM_DOMAIN}" >> /etc/hosts
+    - chmod 400 "$SSH_PRIVATE_KEY"
+    - cd infrastructure/ansible
+    - ansible-galaxy collection install community.docker
+    - export ANSIBLE_CONFIG=${CI_PROJECT_DIR}/infrastructure/ansible/ansible.cfg
+  script:
+    - ansible-playbook playbook.yml --private-key=$SSH_PRIVATE_KEY --tags $ROLE_TAG_NAME
+
+ansible-dependencies:
+  stage: ansible
+  needs: [ansible-lint, terraform-apply ]
+  extends: .ansible-playbook-by-tag
+  variables:
+    ROLE_TAG_NAME: role-dependencies
+  when: manual
+
+ansible-common:
+  stage: ansible
+  needs: [ansible-lint, ansible-dependencies, terraform-apply ]
+  extends: .ansible-playbook-by-tag
+  variables:
+    ROLE_TAG_NAME: role-common
+  before_script:
+    - echo "BACKEND_IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> .env
+    - echo "FRONTEND_IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> .env
+    - *ansible-playbook-by-tag-before_script
+  when: manual
+
+ansible-backend:
+  stage: deploy
+  needs: [build-backend, ansible-common, terraform-apply ]
+  extends: .ansible-playbook-by-tag
+  variables:
+    ROLE_TAG_NAME: role-backend
+  rules:
+    - changes:
+        - backend/**/*
+
+ansible-frontend:
+  stage: deploy
+  needs: [ build-frontend, ansible-common, terraform-apply ]
+  extends: .ansible-playbook-by-tag
+  variables:
+    ROLE_TAG_NAME: role-frontend
+  rules:
+    - changes:
+        - frontend/**/*
+
+

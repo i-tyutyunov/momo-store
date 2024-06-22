@@ -1,4 +1,4 @@
-FROM node:16.20.2-alpine
+FROM docker.io/node:16.20.2-alpine
 
 WORKDIR /usr/src/app
 
