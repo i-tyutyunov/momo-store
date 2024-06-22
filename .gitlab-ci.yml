@@ -157,6 +157,7 @@ ansible-backend:
   rules:
     - changes:
         - backend/**/*
+  when: manual
 
 ansible-frontend:
   stage: deploy
@@ -167,5 +168,6 @@ ansible-frontend:
   rules:
     - changes:
         - frontend/**/*
+  when: manual
 
 
