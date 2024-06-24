@@ -6,8 +6,8 @@ resource "yandex_compute_instance" "instance" {
 
   resources {
     cores         = 2
-    memory        = 1
-    core_fraction = 5
+    memory        = 2
+    core_fraction = 50
   }
 
   boot_disk {
@@ -23,7 +23,7 @@ resource "yandex_compute_instance" "instance" {
   }
 
   scheduling_policy {
-    preemptible = true
+    preemptible = false
   }
 
   metadata = {
