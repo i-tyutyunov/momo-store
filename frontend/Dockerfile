@@ -1,15 +1,10 @@
-FROM docker.io/node:16.20.2-alpine
-
+FROM docker.io/node:16.20.2-alpine as builder
 WORKDIR /usr/src/app
-
 COPY . .
+RUN npm install && npm run build
 
-ENV APP_USER=nodeuser APP_GROUP=nodeuser
-RUN addgroup --system $APP_USER && adduser -S -s /bin/false -G $APP_GROUP $APP_USER -D && chown $APP_USER ./
 
-RUN npm install
-
-USER $APP_USER
-
-EXPOSE 8080
-ENTRYPOINT ["npm", "run", "serve"]
+FROM docker.io/nginx:1.27.0-alpine
+COPY --from=builder /usr/src/app/dist/ /usr/share/nginx/html
+COPY ./nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

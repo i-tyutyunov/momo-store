@@ -1,5 +1,15 @@
 ---
 
+- name: Update web image tag in .env file
+  become: true
+  become_user: "{{ docker_user }}"
+  ansible.builtin.lineinfile:
+    path: "~/app/.env"
+    regexp: '^BACKEND_IMAGE_TAG='
+    line: "BACKEND_IMAGE_TAG={{ backend_image_tag }}"
+    create: true
+    mode: "644"
+
 - name: Run `docker-compose up`
   become: true
   become_user: "{{ docker_user }}"
