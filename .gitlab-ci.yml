@@ -118,7 +118,7 @@ terraform-apply:
   variables:
     - ROLE_TAG_NAME:
         description: "Tag name for ansible-playbook"
-  before_script: &ansible-playbook-by-tag-before_script
+  before_script:
     - source $CI_PROJECT_DIR/ci-cd.env
     - echo "${VM_IP} ${VM_DOMAIN}" >> /etc/hosts
     - chmod 400 "$SSH_PRIVATE_KEY"
@@ -142,10 +142,6 @@ ansible-common:
   extends: .ansible-playbook-by-tag
   variables:
     ROLE_TAG_NAME: role-common
-  before_script:
-    - echo "BACKEND_IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> .env
-    - echo "FRONTEND_IMAGE_TAG=${CI_COMMIT_SHORT_SHA}" >> .env
-    - *ansible-playbook-by-tag-before_script
   when: manual
 
 ansible-backend:
@@ -158,6 +154,8 @@ ansible-backend:
     - changes:
         - backend/**/*
   when: manual
+  script:
+    - ansible-playbook playbook.yml --private-key=$SSH_PRIVATE_KEY --tags $ROLE_TAG_NAME -e "backend_image_tag=$CI_COMMIT_SHORT_SHA"
 
 ansible-frontend:
   stage: deploy
@@ -169,5 +167,7 @@ ansible-frontend:
     - changes:
         - frontend/**/*
   when: manual
+  script:
+    - ansible-playbook playbook.yml --private-key=$SSH_PRIVATE_KEY --tags $ROLE_TAG_NAME -e "frontend_image_tag=$CI_COMMIT_SHORT_SHA"
 
 

@@ -38,6 +38,15 @@
     name: nginx
     state: restarted
 
+- name: Update web image tag in .env file
+  become: true
+  become_user: "{{ docker_user }}"
+  ansible.builtin.lineinfile:
+    path: "~/app/.env"
+    regexp: '^FRONTEND_IMAGE_TAG='
+    line: "FRONTEND_IMAGE_TAG={{ frontend_image_tag }}"
+    create: true
+    mode: "644"
 
 - name: Run `docker-compose up`
   become: true

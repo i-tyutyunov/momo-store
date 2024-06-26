@@ -1,12 +1,6 @@
 server {
     server_name {{ frontend_host }};
 
-
-   location /api {
-       rewrite ^/api/(.*) /$1 break;
-       proxy_pass http://localhost:8081;
-    }
-
     location / {
         proxy_pass http://localhost:8080;
         proxy_set_header Host $host;

@@ -45,11 +45,3 @@
     registry_url: "gitlab.praktikum-services.ru:5050"
     username: "{{ common_docker_registry_username }}"
     password: "{{ common_docker_registry_password }}"
-
-- name: Copy env
-  become: true
-  become_user: "{{ docker_user }}"
-  ansible.builtin.copy:
-    src: ../../../../../.env
-    dest: "~/app/.env"
-    mode: "644"
